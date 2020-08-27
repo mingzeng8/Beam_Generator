@@ -1,8 +1,9 @@
 # Gernerate beam for 6D OSIRIS input
 import numpy as np
+import h5py
 import matplotlib.pyplot as plt
 import os.path
-from scipy.constants import c as light_spped
+from scipy import constants
 import warnings
 from matplotlib.colors import LogNorm
 
@@ -26,7 +27,7 @@ class DistGen:
     def sample_gen_direct(self, n):
         '''
         Gernerate n samples directly.
-        This method is not good if n is not big enough.
+        This method is not good if n is not much biger than length of self.x_bins.
         
         Parameters
         ----------
@@ -47,17 +48,18 @@ class DistGen:
            x_array = np.append(x_array, np.random.random_sample((n_in_bins[b_ind],))*(self.x_bins[b_ind+1]-self.x_bins[b_ind])+self.x_bins[b_ind])
         # Special dealing the last bin
         x_array = np.append(x_array, np.random.random_sample((n_in_bins[-1],))*(self.x_bins[-1]-self.x_bins[-2])+self.x_bins[-1])
+        # Shuffle before return
         np.random.shuffle(x_array)
         return x_array
 
 class BeamGen:
-    def __init__(self, os_file_name, sig_x, sig_y, n_emit_x, n_emit_y, gamma0, sig_gamma, n_macroparticles, zf_x, zf_y, z_array, x0=0., y0=0., q_particle=-1):
+    def __init__(self, sig_x, sig_y, n_emit_x, n_emit_y, gamma0, sig_gamma, n_macroparticles, zf_x, zf_y, z_array, x0=0., y0=0., q_particle=-1):
         '''
         Gernerate 6D information of macroparicles for the OSIRIS 6D particle input..
         
         Parameters
         ----------
-        os_file_name : a string
+        ascii_file_name : a string
             The file name of saving the 6D information.
         sig_x : float (in meters)
             The transverse RMS bunch size in x direction (horizontal).
@@ -88,7 +90,6 @@ class BeamGen:
         q_particle : int, optional
             1 for positrons, and -1 for electrons.
         '''
-        self.os_file_name = os_file_name
         self.n_macroparticles = n_macroparticles
         self.gamma0 = gamma0
         self.sig_x = sig_x
@@ -103,20 +104,16 @@ class BeamGen:
         self.y0=y0
         self.q_particle=q_particle
 
-################################property os_file_name################################
-    def get_os_file_name(self):
-        return self._os_file_name
-
-    def set_os_file_name(self, value):
-        '''If value is a existing folder, set _os_file_name to be 6D.osi, or 6D1.osi if the former already exits, or 6D2.osi and so on. If value is a existing file, add a number at the end of the file name (but before the extension).'''
+    def get_file_name(self, value, file_ext='part'):
+        '''If value is a existing folder, return 6D.<file_ext>, or 6D1.<file_ext> if the former already exits, or 6D2.<file_ext> and so on. If value is a existing file, add a number at the end of the file name (but before the extension).'''
         tmp_path = os.path.abspath(value)
         if os.path.isdir(tmp_path):
             i=1
-            final_file = os.path.join(tmp_path, '6D.osi')
+            final_file = os.path.join(tmp_path, '6D.{}'.format(file_ext))
             while os.path.exists(final_file):
-                final_file = os.path.join(tmp_path, '6D{0}.osi'.format(i))
+                final_file = os.path.join(tmp_path, '6D{}.{}'.format(i, file_ext))
                 i+=1
-            warnings.warn('Warning: \'{0}\' is a folder. Use \'{1}\' as the OSIRIS 6D input file instead!'.format(tmp_path, final_file))
+            warnings.warn('Warning: \'{0}\' is a folder. Use \'{1}\' as the file name instead!'.format(tmp_path, final_file))
         elif os.path.isfile(tmp_path):
             root, ext = os.path.splitext(tmp_path)
             i=1
@@ -124,17 +121,32 @@ class BeamGen:
             while os.path.exists(final_file):
                 i+=1
                 final_file = '{0}{1}{2}'.format(root, i, ext)
-            warnings.warn('Warning: OSIRIS 6D input file \'{0}\' already exist. Use \'{1}\' instead!'.format(tmp_path, final_file))
+            warnings.warn('Warning: file \'{0}\' already exist. Use \'{1}\' instead!'.format(tmp_path, final_file))
         else:
             head, tail = os.path.split(tmp_path)
             if os.path.isdir(head):
                 final_file = tmp_path
             else:
-                raise IOError('OSIRIS 6D input file directory \'{0}\' do not exist!'.format(head))
-        self._os_file_name = final_file
-        #print('self._os_file_name = {0}'.format(self._os_file_name))
+                raise IOError('Directory \'{0}\' do not exist!'.format(head))
+        return final_file
 
-    os_file_name = property(get_os_file_name, set_os_file_name)
+################################property ascii_file_name################################
+    def get_ascii_file_name(self):
+        return self._ascii_file_name
+
+    def set_ascii_file_name(self, value):
+        self._ascii_file_name = self.get_file_name(value, file_ext='osi')
+
+    ascii_file_name = property(get_ascii_file_name, set_ascii_file_name)
+
+################################property h5_file_name################################
+    def get_h5_file_name(self):
+        return self._h5_file_name
+
+    def set_h5_file_name(self, value):
+        self._h5_file_name = self.get_file_name(value, file_ext='h5')
+
+    h5_file_name = property(get_h5_file_name, set_h5_file_name)
 
 ################################property n_macroparticles################################
     def get_n_macroparticles(self):
@@ -164,29 +176,11 @@ class BeamGen:
 
     sig_gamma = property(get_sig_gamma, set_sig_gamma)
 
-################################property osid################################
-    def get_osid(self):
-        return self._osid
-
-    def set_osid(self, value):
-        raise RuntimeError('Cannot set osid! It will be set once the method open() is called.')
-
-    osid = property(get_osid, set_osid)
-
-################################method open################################
-    def open(self):
-        self._osid = open(self.os_file_name, 'w')
-
-################################method close################################
-    def close(self):
-        self._osid.close()
-
 ################################method beam_gen################################
-    def beam_gen(self, if_save = False):
+    def beam_gen(self, save_ascii_name = None, save_h5_name = None, sim_bound = None, nx = None, n0_per_cc = 1.e16, Q_beam = -1.e-12):
         '''
         Gernerate 6D information of macroparicles for the OSIRIS 6D particle input.
         Gernating method based on the method of FBPIC, at https://github.com/fbpic/fbpic/blob/dev/fbpic/lpa_utils/bunch.py (function add_particle_bunch_gaussian()).
-        If if_save == True, save the data in file directly.
         '''
         if self.sig_gamma > 0.: gamma = np.random.normal(self.gamma0, self.sig_gamma, self.n_macroparticles)
         else: gamma = np.full(self.n_macroparticles, self.gamma0)# Zero energy spread beam
@@ -232,17 +226,50 @@ class BeamGen:
         distance_after_f_y = self.z_array - self.zf_y
         self.x_array = self.x_array + self.ux_array / self.uz_array * distance_after_f_x
         self.y_array = self.y_array + self.uy_array / self.uz_array * distance_after_f_y
-        if if_save: self.save_sample_ascii()
+        if save_ascii_name is not None:
+            self.ascii_file_name = save_ascii_name
+            self.save_sample_ascii()
+        if save_h5_name is not None:
+            self.h5_file_name = save_h5_name
+            self.save_sample_h5(sim_bound = sim_bound, nx = nx, n0_per_cc = n0_per_cc, Q_beam = Q_beam)
 
 ################################method save_sample_ascii################################
     def save_sample_ascii(self):
         '''
-        Save self.z_array [m], self.x_array [m], self.y_array [m], self.uz_array [mc], self.ux_array [mc], self.uy_array [mc], self.q_particle to file.
+        Save self.z_array [m], self.x_array [m], self.y_array [m], self.uz_array [mc], self.ux_array [mc], self.uy_array [mc], self.q_particle to ascii file.
         '''
-        self.open()
-        for i in range(len(self.z_array)):
-            self._osid.write('{0} {1} {2} {3} {4} {5} {6}\n'.format(self.z_array[i],self.x_array[i],self.y_array[i],self.uz_array[i],self.ux_array[i],self.uy_array[i],self.q_particle))
-        self.close()
+        with open(self.ascii_file_name, 'w') as fid:
+            for i in range(len(self.z_array)):
+                fid.write('{0} {1} {2} {3} {4} {5} {6}\n'.format(self.z_array[i],self.x_array[i],self.y_array[i],self.uz_array[i],self.ux_array[i],self.uy_array[i],self.q_particle))
+
+################################method save_sample_h5################################
+    def save_sample_h5(self, sim_bound = None, nx = None, n0_per_cc = 1.e16, Q_beam = -1.e-12):
+        '''
+        Transform self.z_array [m], self.x_array [m], self.y_array [m], self.uz_array [mc], self.ux_array [mc], self.uy_array [mc], self.q_particle to normalized units and save to h5 file.
+        sim_bound : simulation boundaries, [[x1min, x1max], [x2min, x2max], [x3min, x3max]]
+        nx : number of cells in 3 dimensions, [nx1, nx2, nx3]
+        n0_per_cc : density for normalization, in unit of per cc.
+        Q_beam : beam charge, in unit of Coulomb
+        '''
+        with h5py.File(self.h5_file_name, 'w') as fid:
+            sim_bound = np.transpose(sim_bound)
+            fid.attrs.create('TIME', (0.,))
+            fid.attrs.create('XMIN', sim_bound[0])
+            fid.attrs.create('XMAX', sim_bound[1])
+            fid.attrs.create('NX', nx)
+            # k0 in unit of m^-1
+            k0 = np.sqrt(4*constants.pi*constants.physical_constants['classical electron radius'][0]*n0_per_cc*1e6)
+            fid.create_dataset("x1", data=k0*self.z_array)
+            fid.create_dataset("x2", data=k0*self.x_array)
+            fid.create_dataset("x3", data=k0*self.y_array)
+            fid.create_dataset("p1", data=self.uz_array)
+            fid.create_dataset("p2", data=self.ux_array)
+            fid.create_dataset("p3", data=self.uy_array)
+            n_part = len(self.x_array)
+            cell_volume_norm = 1.
+            for i in range(3): cell_volume_norm *= (sim_bound[1,i]-sim_bound[0,i])/nx[i]
+            q = Q_beam/n_part/constants.elementary_charge/cell_volume_norm*k0**3/n0_per_cc/1.e6
+            fid.create_dataset("q", data=np.full(n_part, q))
 
 ################################method plot_hist2D################################
     def plot_hist2D(self, xaxis='z', yaxis='x', bins=64):
@@ -260,7 +287,7 @@ class BeamGen:
 if __name__ == '__main__':
     current_filename = './ZeroCrossing1.txt'
     data = np.loadtxt(current_filename,delimiter=',')
-    z = (data[0,:]*light_spped*1.e-9-24110.)*1e-6 # Original unit fs; transform to m; shift to simulation box position
+    z = (data[0,:]*constants.c*1.e-9-26710.)*1e-6 # Original unit fs; transform to m; shift to simulation box position
     current = data[1,:]
     plt.plot(z,current,'k-')
     samp_generator = DistGen(z, current)
@@ -269,7 +296,7 @@ if __name__ == '__main__':
     hist, z_bins = np.histogram(sample_z, bins = 128)
     hist = hist*(np.max(current)/hist.max())
     plt.plot(z_bins[:-1], hist, 'r-')
-    beam_generator = BeamGen(os_file_name='./', sig_x=19.6e-6, sig_y=17.1e-6, n_emit_x=14.04e-6, n_emit_y=5.32e-6, gamma0=2184., sig_gamma=10., n_macroparticles=1e5, zf_x=3e-2, zf_y=-2e-2, z_array=sample_z)
-    beam_generator.beam_gen()#if_save=True)
-    beam_generator.plot_hist2D(xaxis='x', yaxis='y')
+    beam_generator = BeamGen(sig_x=19.6e-6, sig_y=17.1e-6, n_emit_x=14.04e-6, n_emit_y=5.32e-6, gamma0=2184., sig_gamma=10., n_macroparticles=1e5, zf_x=2.9e-2, zf_y=-5e-3, z_array=sample_z)
+    beam_generator.beam_gen(save_h5_name='./', sim_bound = [[0.,10.], [-4., 4.], [-4., 4.]], nx = [512, 256, 256], n0_per_cc = 1.e16, Q_beam = -300.e-12)
+    beam_generator.plot_hist2D(xaxis='z', yaxis='x')
     plt.show()
