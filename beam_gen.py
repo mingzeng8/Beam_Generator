@@ -233,6 +233,18 @@ class BeamGen:
             self.h5_file_name = save_h5_name
             self.save_sample_h5(sim_bound = sim_bound, nx = nx, n0_per_cc = n0_per_cc, Q_beam = Q_beam)
 
+################################method beam_symmetrization################################
+    def beam_symmetrization(self):
+        '''
+        Cylindrically symmetrization the beam.
+        '''
+        self.x_array = np.append(self.x_array, -self.x_array)
+        self.y_array = np.append(self.y_array, -self.y_array)
+        self.z_array = np.append(self.z_array, self.z_array)
+        self.ux_array = np.append(self.ux_array, -self.ux_array)
+        self.uy_array = np.append(self.uy_array, -self.uy_array)
+        self.uz_array = np.append(self.uz_array, self.uz_array)
+
 ################################method save_sample_ascii################################
     def save_sample_ascii(self):
         '''
