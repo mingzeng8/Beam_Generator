@@ -1,7 +1,8 @@
 import beam_gen
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import constants, sqrt
+from scipy import constants
+from numpy.lib.scimath import sqrt
 
 def piecewise_linear(x, xarr, yarr):
     '''
@@ -67,7 +68,7 @@ def driver_gen():
 def var_driver_gen():
     # Driver with varing emittance
     n0_per_cc = 5.0334e15
-    N = int(4e6)
+    N = int(2e7)
     z = np.linspace(5., 13., 128)
     current = driver_profile(z)
     samp_generator = beam_gen.DistGen(z, current)
@@ -81,7 +82,9 @@ def var_driver_gen():
     # varying emittance
     z_max = sample_z.max()
     z_min = sample_z.min()
-    n_emit = ((z_max - sample_z)/(z_max - z_min)*35.+1.)*n_emit0
+    #n_emit = ((z_max - sample_z)/(z_max - z_min)*99.+1.)*n_emit0
+    z_trans = z_max - (z_max-z_min)*0.05
+    n_emit = np.piecewise(sample_z, [sample_z<z_trans], [lambda sample_z:((z_trans - sample_z)/(z_trans - z_min)*99.+1.)*n_emit0, n_emit0])
 
     k0 = np.sqrt(4*constants.pi*constants.physical_constants['classical electron radius'][0]*n0_per_cc*1e6)
     gamma_beam = 19569.5
@@ -94,7 +97,9 @@ def var_driver_gen():
     beam_generator.beam_gen()
     #beam_generator.x_array *= (z_max - beam_generator.z_array)/ratio +1.
     #beam_generator.y_array *= (z_max - beam_generator.z_array)/ratio +1.
+    #beam_generator.beam_symmetrization()
     beam_generator.h5_file_name = './driver.h5'
+    #beam_generator.h5_file_name = './driver_symmetric.h5'
     beam_generator.save_sample_h5(sim_bound = [[0.,13.], [-6., 6.], [-6., 6.]], nx = [512, 512, 512], n0_per_cc = n0_per_cc, Q_beam = -6.e-9)
     beam_generator.plot_hist2D(xaxis='z', yaxis='x')
     plt.show()
