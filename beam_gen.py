@@ -234,16 +234,22 @@ class BeamGen:
             self.save_sample_h5(sim_bound = sim_bound, nx = nx, n0_per_cc = n0_per_cc, Q_beam = Q_beam)
 
 ################################method beam_symmetrization################################
-    def beam_symmetrization(self):
+    def beam_symmetrization(self, ratio=1):
         '''
         Cylindrically symmetrization the beam.
+        ratio is the ratio of particles to be symmetrized.
         '''
-        self.x_array = np.append(self.x_array, -self.x_array)
-        self.y_array = np.append(self.y_array, -self.y_array)
-        self.z_array = np.append(self.z_array, self.z_array)
-        self.ux_array = np.append(self.ux_array, -self.ux_array)
-        self.uy_array = np.append(self.uy_array, -self.uy_array)
-        self.uz_array = np.append(self.uz_array, self.uz_array)
+        N=len(self.x_array)
+        R=int(N*ratio)
+        # R should not be larger than N
+        R = R if R<N else N
+        if R>0:
+            self.x_array = np.append(self.x_array[:R], -self.x_array[:R])
+            self.y_array = np.append(self.y_array[:R], -self.y_array[:R])
+            self.z_array = np.append(self.z_array[:R], self.z_array[:R])
+            self.ux_array = np.append(self.ux_array[:R], -self.ux_array[:R])
+            self.uy_array = np.append(self.uy_array[:R], -self.uy_array[:R])
+            self.uz_array = np.append(self.uz_array[:R], self.uz_array[:R])
 
 ################################method save_sample_ascii################################
     def save_sample_ascii(self):

@@ -26,22 +26,26 @@ def driver_profile(x):
     #n = np.piecewise(x, [x<5., x>12.8],\
     #                    [  0.,     0., lambda x: (1./(13.-x)-x+13.)/8.])
     # the last value is the default value, when no condition is satisfied
-    z = np.array([0.0,0.2026,0.4052,0.6754,0.8779999999,0.878,0.8781,1.0807,1.4184,1.6885,1.9587,2.499,3.5121,5.1331,8.1049])
-    fz= np.array([0.2667,0.1834,0.1364,0.1101,0.107711,0.107711,0.1078,0.115,0.1403,0.1674,0.1981,0.2646,0.3959,0.6089,1.0])
-    z = np.flip(12.9-z)
+    z = np.array([   0.0,0.2026,0.4052,0.6754, 0.878,1.0807,1.4184,1.6885,1.9587, 2.499,3.5121,5.1331,8.1049])
+    fz= np.array([0.2667,0.1834,0.1364,0.1101,0.1078, 0.115,0.1403,0.1674,0.1981,0.2646,0.3959,0.6089,   1.0])
+    z = np.flip(12.-z)
     fz= np.flip(fz)
     return piecewise_linear(x, z, fz)
 
-def trailer_profile(z):
-    n = np.piecewise(z, [z<1.8558, z>2.8689],\
-                        [      0.,       0., lambda z: 0.4+0.6/1.0131*(z-1.8558)])
+def trailer_profile(x):
+    #n = np.piecewise(x, [x<1.8558, x>2.8689],\
+    #                    [      0.,       0., lambda x: 0.4+0.6/1.0131*(x-1.8558)])
     # the last value is the default value, when no condition is satisfied
-    return(n)
+    z = np.array([0.0,10.1176,10.1311,11.1442,11.1578])
+    fz= np.array([0.0,    0.0,    1.0,    0.4,    0.0])
+    z = np.flip(12.-z)
+    fz= np.flip(fz)
+    return piecewise_linear(x, z, fz)
 
 def driver_gen():
     n0_per_cc = 5.0334e15
     N = int(1e6)
-    z = np.linspace(5., 13., 128)
+    z = np.linspace(3.8, 12.1, 256)
     current = driver_profile(z)
     samp_generator = beam_gen.DistGen(z, current)
     sample_z = samp_generator.sample_gen_direct(N*1.01)
@@ -52,16 +56,11 @@ def driver_gen():
     k0 = np.sqrt(4*constants.pi*constants.physical_constants['classical electron radius'][0]*n0_per_cc*1e6)
     sample_z = sample_z/k0 # Transform to meter
 
-    beam_generator = beam_gen.BeamGen(sig_x=6.e-6, sig_y=6.e-6, n_emit_x=20.e-6, n_emit_y=20.e-6, gamma0=19569.5, sig_gamma=10., n_macroparticles=N, zf_x=0., zf_y=0., z_array=sample_z)
+    beam_generator = beam_gen.BeamGen(sig_x=3.9e-6, sig_y=3.9e-6, n_emit_x=20.e-6, n_emit_y=20.e-6, gamma0=19569.5, sig_gamma=10., n_macroparticles=N, zf_x=0., zf_y=0., z_array=sample_z)
     beam_generator.beam_gen()
-    # varying beam size
-    z_max = np.max(beam_generator.z_array)
-    z_min = np.min(beam_generator.z_array)
-    ratio = z_max - z_min
-    #beam_generator.x_array *= (z_max - beam_generator.z_array)/ratio +1.
-    #beam_generator.y_array *= (z_max - beam_generator.z_array)/ratio +1.
+    beam_generator.beam_symmetrization()
     beam_generator.h5_file_name = './driver.h5'
-    beam_generator.save_sample_h5(sim_bound = [[0.,13.], [-6., 6.], [-6., 6.]], nx = [512, 512, 512], n0_per_cc = n0_per_cc, Q_beam = -6.e-9)
+    beam_generator.save_sample_h5(sim_bound = [[0.,12.5], [-6., 6.], [-6., 6.]], nx = [512, 512, 512], n0_per_cc = n0_per_cc, Q_beam = -6.e-9)
     beam_generator.plot_hist2D(xaxis='z', yaxis='x')
     plt.show()
 
@@ -100,17 +99,17 @@ def var_driver_gen():
     #beam_generator.beam_symmetrization()
     beam_generator.h5_file_name = './driver.h5'
     #beam_generator.h5_file_name = './driver_symmetric.h5'
-    beam_generator.save_sample_h5(sim_bound = [[0.,13.], [-6., 6.], [-6., 6.]], nx = [512, 512, 512], n0_per_cc = n0_per_cc, Q_beam = -6.e-9)
+    beam_generator.save_sample_h5(sim_bound = [[0.,12.5], [-6., 6.], [-6., 6.]], nx = [512, 512, 512], n0_per_cc = n0_per_cc, Q_beam = -6.e-9)
     beam_generator.plot_hist2D(xaxis='z', yaxis='x')
     plt.show()
 
 def trailer_gen():
     n0_per_cc = 5.0334e15
-    N = int(1e6)
-    z = np.linspace(1.8, 2.9, 64)
+    N = int(2e5)
+    z = np.linspace(.8, 1.9, 128)
     current = trailer_profile(z)
     samp_generator = beam_gen.DistGen(z, current)
-    sample_z = samp_generator.sample_gen_direct(N)
+    sample_z = samp_generator.sample_gen_direct(N*1.01)
     hist, z_bins = np.histogram(sample_z, bins = len(z))
     hist = hist*(np.max(current)/hist.max())
     plt.plot(z_bins[:-1], hist, 'r--')
@@ -118,12 +117,12 @@ def trailer_gen():
     k0 = np.sqrt(4*constants.pi*constants.physical_constants['classical electron radius'][0]*n0_per_cc*1e6)
     sample_z = sample_z/k0 # Transform to meter
 
-    beam_generator = beam_gen.BeamGen(sig_x=8.8-6, sig_y=8.8-6, n_emit_x=100.e-6, n_emit_y=100.e-6, gamma0=19569.5, sig_gamma=10., n_macroparticles=N, zf_x=0., zf_y=0., z_array=sample_z)
-    beam_generator.beam_gen(save_h5_name='./trailer.h5', sim_bound = [[0.,13.], [-6., 6.], [-6., 6.]], nx = [512, 256, 256], n0_per_cc = n0_per_cc, Q_beam = -0.87e-9)
+    beam_generator = beam_gen.BeamGen(sig_x=8.8e-6, sig_y=8.8e-6, n_emit_x=100.e-6, n_emit_y=100.e-6, gamma0=19569.5, sig_gamma=10., n_macroparticles=N, zf_x=0., zf_y=0., z_array=sample_z)
+    beam_generator.beam_gen(save_h5_name='./trailer.h5', sim_bound = [[0.,12.5], [-6., 6.], [-6., 6.]], nx = [512, 512, 512], n0_per_cc = n0_per_cc, Q_beam = -0.87e-9)
     beam_generator.plot_hist2D(xaxis='z', yaxis='x')
     plt.show()
 
 if '__main__' == __name__:
     #driver_gen()
-    var_driver_gen()
-    #trailer_gen()
+    #var_driver_gen()
+    trailer_gen()
