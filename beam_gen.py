@@ -234,22 +234,32 @@ class BeamGen:
             self.save_sample_h5(sim_bound = sim_bound, nx = nx, n0_per_cc = n0_per_cc, Q_beam = Q_beam)
 
 ################################method beam_symmetrization################################
-    def beam_symmetrization(self, ratio=1):
+    def beam_symmetrization(self, ratio=1, insert_method=0):
         '''
         Cylindrically symmetrization the beam.
         ratio is the ratio of particles to be symmetrized.
+        insert_method: 0 for append the new particles at the end of all particles.
+                       1 for insert the each of the new particles after its symmetry particle.
         '''
         N=len(self.x_array)
         R=int(N*ratio)
         # R should not be larger than N
         R = R if R<N else N
         if R>0:
-            self.x_array = np.append(self.x_array[:R], -self.x_array[:R])
-            self.y_array = np.append(self.y_array[:R], -self.y_array[:R])
-            self.z_array = np.append(self.z_array[:R], self.z_array[:R])
-            self.ux_array = np.append(self.ux_array[:R], -self.ux_array[:R])
-            self.uy_array = np.append(self.uy_array[:R], -self.uy_array[:R])
-            self.uz_array = np.append(self.uz_array[:R], self.uz_array[:R])
+            if 0==insert_method:
+                self.z_array = np.append(self.z_array[:R], self.z_array[:R])
+                self.uz_array = np.append(self.uz_array[:R], self.uz_array[:R])
+                self.x_array = np.append(self.x_array[:R], -self.x_array[:R])
+                self.y_array = np.append(self.y_array[:R], -self.y_array[:R])
+                self.ux_array = np.append(self.ux_array[:R], -self.ux_array[:R])
+                self.uy_array = np.append(self.uy_array[:R], -self.uy_array[:R])
+            else:
+                self.z_array = np.insert(self.z_array, range(1,R+1), self.z_array[:R])
+                self.uz_array = np.insert(self.uz_array, range(1,R+1), self.uz_array[:R])
+                self.x_array = np.insert(self.x_array, range(1,R+1), -self.x_array[:R])
+                self.y_array = np.insert(self.y_array, range(1,R+1), -self.y_array[:R])
+                self.ux_array = np.insert(self.ux_array, range(1,R+1), -self.ux_array[:R])
+                self.uy_array = np.insert(self.uy_array, range(1,R+1), -self.uy_array[:R])
 
 ################################method save_sample_ascii################################
     def save_sample_ascii(self):
