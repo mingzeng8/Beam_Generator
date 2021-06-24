@@ -226,6 +226,8 @@ class BeamGen:
         distance_after_f_y = self.z_array - self.zf_y
         self.x_array = self.x_array + self.ux_array / self.uz_array * distance_after_f_x
         self.y_array = self.y_array + self.uy_array / self.uz_array * distance_after_f_y
+        # Default weight is 1 for each macro-particle
+        self.weight = np.ones_like(self.x_array)
         if save_ascii_name is not None:
             self.ascii_file_name = save_ascii_name
             self.save_sample_ascii()
@@ -247,12 +249,15 @@ class BeamGen:
         R = R if R<N else N
         if R>0:
             if 0==insert_method:
-                self.z_array = np.append(self.z_array[:R], self.z_array[:R])
-                self.uz_array = np.append(self.uz_array[:R], self.uz_array[:R])
-                self.x_array = np.append(self.x_array[:R], -self.x_array[:R])
-                self.y_array = np.append(self.y_array[:R], -self.y_array[:R])
-                self.ux_array = np.append(self.ux_array[:R], -self.ux_array[:R])
-                self.uy_array = np.append(self.uy_array[:R], -self.uy_array[:R])
+                self.z_array = np.append(self.z_array, self.z_array[:R])
+                self.uz_array = np.append(self.uz_array, self.uz_array[:R])
+                self.x_array = np.append(self.x_array, -self.x_array[:R])
+                self.y_array = np.append(self.y_array, -self.y_array[:R])
+                self.ux_array = np.append(self.ux_array, -self.ux_array[:R])
+                self.uy_array = np.append(self.uy_array, -self.uy_array[:R])
+                # split every symmetrized macro-particle
+                self.weight[:R] *= 0.5
+                self.weight = np.append(self.weight, self.weight[:R])
             else:
                 self.z_array = np.insert(self.z_array, range(1,R+1), self.z_array[:R])
                 self.uz_array = np.insert(self.uz_array, range(1,R+1), self.uz_array[:R])
@@ -260,6 +265,9 @@ class BeamGen:
                 self.y_array = np.insert(self.y_array, range(1,R+1), -self.y_array[:R])
                 self.ux_array = np.insert(self.ux_array, range(1,R+1), -self.ux_array[:R])
                 self.uy_array = np.insert(self.uy_array, range(1,R+1), -self.uy_array[:R])
+                # split every symmetrized macro-particle
+                self.weight[:R] *= 0.5
+                self.weight = np.insert(self.weight, range(1,R+1), self.weight[:R])
 
 ################################method save_sample_ascii################################
     def save_sample_ascii(self):
@@ -293,11 +301,11 @@ class BeamGen:
             fid.create_dataset("p1", data=self.uz_array)
             fid.create_dataset("p2", data=self.ux_array)
             fid.create_dataset("p3", data=self.uy_array)
-            n_part = len(self.x_array)
+            sum_weight = np.sum(self.weight)
             cell_volume_norm = 1.
             for i in range(3): cell_volume_norm *= (sim_bound[1,i]-sim_bound[0,i])/nx[i]
-            q = Q_beam/n_part/constants.elementary_charge/cell_volume_norm*k0**3/n0_per_cc/1.e6
-            fid.create_dataset("q", data=np.full(n_part, q))
+            q_per_weight = Q_beam/sum_weight/constants.elementary_charge/cell_volume_norm*k0**3/n0_per_cc/1.e6
+            fid.create_dataset("q", data=self.weight*q_per_weight)
 
 ################################method plot_hist2D################################
     def plot_hist2D(self, xaxis='z', yaxis='x', bins=64):
