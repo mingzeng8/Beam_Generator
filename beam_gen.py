@@ -268,6 +268,7 @@ class BeamGen:
                 # split every symmetrized macro-particle
                 self.weight[:R] *= 0.5
                 self.weight = np.insert(self.weight, range(1,R+1), self.weight[:R])
+        print('Symmetrize numbers N = {}, R = {}'.format(N, R))
 
 ################################method save_sample_ascii################################
     def save_sample_ascii(self):
@@ -313,7 +314,7 @@ class BeamGen:
         plot 2D histogram.
         '''
         axis_dic={'z':self.z_array, 'x':self.x_array, 'y':self.y_array, 'pz':self.uz_array, 'px':self.ux_array, 'py':self.uy_array}
-        H, xedges, yedges = np.histogram2d(axis_dic[xaxis], axis_dic[yaxis], bins=bins)
+        H, xedges, yedges = np.histogram2d(axis_dic[xaxis], axis_dic[yaxis], bins=bins, weights=self.weight)
         plt.figure()
         plt.pcolormesh(xedges[:-1], yedges[:-1], np.transpose(H), norm=LogNorm())
         plt.xlabel(xaxis)
